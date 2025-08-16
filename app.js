@@ -34,7 +34,7 @@ function loadFromStorage() {
     if (state.todos.length > 0) {
       state.nextId = Math.max(...state.todos.map((t) => t.id)) + 1;
     } else {
-      state.nextId = 1; // If no todos, reset nextId to 1
+      state.nextId = 1; 
     }
   }
 }
@@ -101,7 +101,7 @@ function updateTodo(id, updates) {
 function deleteTodo(id) {
   if (confirm("Are you sure you want to delete this todo?")) {
     state.todos = state.todos.filter((todo) => todo.id !== id);
-    state.showHistory = null; // Ensure history view is closed after deletion
+    state.showHistory = null;
     saveToStorage();
     rerenderUI();
   }
@@ -269,6 +269,18 @@ function formatDate(dateString) {
   });
 }
 
+function formatDateTime(isoString) {
+  const date = new Date(isoString);
+  return date.toLocaleString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+}
+
 function rerenderUI() {
   const app = document.getElementById("app");
   const filteredTodos = getFilteredTodos();
@@ -391,8 +403,13 @@ function rerenderUI() {
               filteredTodos.length === 0
                 ? `<div class="no-todos"><h4>No todos found</h4><p>Create your first todo or adjust your filters</p></div>`
                 : filteredTodos
-                    .map(
-                      (todo) => `
+                    .map((todo) => {
+                      const isCurrentHistory = state.showHistory === todo.id;
+                      const currentHistoryEntry = isCurrentHistory
+                        ? todo.history[state.currentHistoryIndex[todo.id]]
+                        : null;
+
+                      return `
               <div class="todo-item ${todo.status}" data-todo-id="${todo.id}">
                 <div class="todo-header">
                   <div>
@@ -484,8 +501,62 @@ function rerenderUI() {
                       </div>`
                     : ""
                 }
-              </div>`
-                    )
+
+                ${
+                  isCurrentHistory && currentHistoryEntry
+                    ? `<div class="history-view">
+                        <h4>History for "${todo.title}"</h4>
+                        <div class="history-entry">
+                          <p><strong>Action:</strong> ${
+                            currentHistoryEntry.action
+                          }</p>
+                          <p><strong>Timestamp:</strong> ${formatDateTime(
+                            currentHistoryEntry.timestamp
+                          )}</p>
+                          <p><strong>Title:</strong> ${
+                            currentHistoryEntry.data.title
+                          }</p>
+                          <p><strong>Description:</strong> ${
+                            currentHistoryEntry.data.description || "N/A"
+                          }</p>
+                          <p><strong>Category:</strong> ${
+                            currentHistoryEntry.data.category
+                          }</p>
+                          <p><strong>Due Date:</strong> ${
+                            currentHistoryEntry.data.dueDate
+                              ? formatDate(currentHistoryEntry.data.dueDate)
+                              : "N/A"
+                          }</p>
+                          <p><strong>Status:</strong> ${
+                            currentHistoryEntry.data.status
+                          }</p>
+                        </div>
+                        <div class="history-navigation">
+                          <button class="btn btn-secondary" ${
+                            state.currentHistoryIndex[todo.id] === 0
+                              ? "disabled"
+                              : ""
+                          } onclick="navigateHistory(${
+                        todo.id
+                      }, -1)">Previous</button>
+                          <span>${state.currentHistoryIndex[todo.id] + 1} / ${
+                        todo.history.length
+                      }</span>
+                          <button class="btn btn-secondary" ${
+                            state.currentHistoryIndex[todo.id] ===
+                            todo.history.length - 1
+                              ? "disabled"
+                              : ""
+                          } onclick="navigateHistory(${
+                        todo.id
+                      }, 1)">Next</button>
+                          <button class="btn btn-danger" onclick="closeHistory()">Close History</button>
+                        </div>
+                      </div>`
+                    : ""
+                }
+              </div>`;
+                    })
                     .join("")
             }
           </div>
